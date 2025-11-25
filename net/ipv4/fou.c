@@ -339,6 +339,9 @@ static struct sk_buff *gue_gro_receive(struct sock *sk,
 
 	skb_gro_remcsum_init(&grc);
 
+	if (!fou)
+		goto out;
+
 	off = skb_gro_offset(skb);
 	len = off + sizeof(*guehdr);
 
@@ -453,7 +456,7 @@ next_proto:
 
 	offloads = NAPI_GRO_CB(skb)->is_ipv6 ? inet6_offloads : inet_offloads;
 	ops = rcu_dereference(offloads[proto]);
-	if (WARN_ON_ONCE(!ops || !ops->callbacks.gro_receive))
+	if (!ops || !ops->callbacks.gro_receive)
 		goto out;
 
 	pp = call_gro_receive(ops->callbacks.gro_receive, head, skb);
