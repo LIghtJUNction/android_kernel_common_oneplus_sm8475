@@ -1,3 +1,24 @@
+# 请勿直接克隆本仓库
+[从主线同步](https://github.com/LIghtJUNction/kernel_manifest)
+
+内核已经集成
+1. ksu
+2. susfs
+3. bbg关键分区保护
+
+- 稳定版内核存档，请前往主线下载
+
+- 之后所有内核，我将直接发布在主线仓库！
+
+- 所有的release版本内核，均为full编译，无action
+
+- 不打算使用action编译
+
+- 仅支持官版KSU，没有能力没有精力维护多版本
+
+
+
+
 # How do I submit patches to Android Common Kernels
 
 1. BEST: Make all of your changes to upstream Linux. If appropriate, backport to the stable releases.
