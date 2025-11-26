@@ -215,6 +215,20 @@ static void *m_start(struct seq_file *m, loff_t *ppos)
 
 	return priv->tail_vma;
 }
+/* Backwards compatibility helpers: some trees use get_pad_vma/get_data_vma helpers
+ * to extract the pad/data vma from the seq-file 'v' pointer. Provide inline
+ * wrappers that return the passed pointer to keep code paths uniform across
+ * variants.
+ */
+static inline struct vm_area_struct *get_pad_vma(void *v)
+{
+	return v;
+}
+
+static inline struct vm_area_struct *get_data_vma(void *v)
+{
+	return v;
+}
 
 static void *m_next(struct seq_file *m, void *v, loff_t *ppos)
 {
@@ -1084,97 +1098,6 @@ show_pad:
 	return 0;
 }
 /* Removed duplicate `show_map` — top-level file already defines this. */
-	seq_puts(m, " kB\n");
-
-	__show_smap(m, &mss, false);
-
-	seq_printf(m, "THPeligible:    %d\n",
-		   transparent_hugepage_active(vma));
-
-#if defined(CONFIG_CONT_PTE_HUGEPAGE) && defined(CONFIG_CONT_PTE_HUGEPAGE_DEBUG)
-	if (!strcmp(current->comm, "cat")) {
-		char buf[256];
-		char *p;
-
-		if (!vma_is_anonymous(vma)) {
-			if (mss.file_thp) {
-				p = d_path(&vma->vm_file->f_path, buf, 256);
-				if (!IS_ERR(p)) {
-					seq_printf(m, "GottenContPte: %lx-%lx(vma) %c%c%c%c %lx(pgoff) ",
-							vma->vm_start, vma->vm_end,
-							vma->vm_flags & VM_READ ? 'r' : '-',
-							vma->vm_flags & VM_WRITE ? 'w' : '-',
-							vma->vm_flags & VM_EXEC ? 'x' : '-',
-							vma->vm_flags & VM_MAYSHARE ? 's' : 'p',
-							vma->vm_pgoff);
-					SEQ_PUT_DEC("size:", vma->vm_end - vma->vm_start);
-					SEQ_PUT_DEC("kB  rss:", mss.resident);
-					SEQ_PUT_DEC("kB  thp_size:", mss.file_thp);
-					seq_printf(m, "kB  %s\n", p);
-				}
-			} else {
-				if (transhuge_cont_pte_vma_suitable(vma, ALIGN_DOWN(vma->vm_start, HPAGE_CONT_PTE_SIZE) + HPAGE_CONT_PTE_SIZE)) {
-					p = d_path(&vma->vm_file->f_path, buf, 256);
-					if (!IS_ERR(p)) {
-						/* filter: vma size >= 128k */
-						if ((vma->vm_end - vma->vm_start) >= (128 << 10)) {
-							seq_printf(m, "MissedContPte: %lx-%lx(vma) %c%c%c%c %lx(pgoff) ",
-									vma->vm_start, vma->vm_end,
-									vma->vm_flags & VM_READ ? 'r' : '-',
-									vma->vm_flags & VM_WRITE ? 'w' : '-',
-									vma->vm_flags & VM_EXEC ? 'x' : '-',
-									vma->vm_flags & VM_MAYSHARE ? 's' : 'p',
-									vma->vm_pgoff);
-							SEQ_PUT_DEC("size:", vma->vm_end - vma->vm_start);
-							SEQ_PUT_DEC("kB  rss:", mss.resident);
-							SEQ_PUT_DEC("kB  thp_size:", mss.file_thp);
-							seq_printf(m, "kB  %s\n", p);
-						}
-					}
-				}
-			}
-		} else {
-			seq_printf(m, "chp: %d\n", vma_is_chp_anonymous(vma));
-			if (mss.anonymous_thp) {
-				seq_printf(m, "GottenAnonContPte: %lx-%lx(vma) %c%c%c%c %lx(pgoff) ",
-						vma->vm_start, vma->vm_end,
-						vma->vm_flags & VM_READ ? 'r' : '-',
-						vma->vm_flags & VM_WRITE ? 'w' : '-',
-						vma->vm_flags & VM_EXEC ? 'x' : '-',
-						vma->vm_flags & VM_MAYSHARE ? 's' : 'p',
-						vma->vm_pgoff);
-				SEQ_PUT_DEC("size:", vma->vm_end - vma->vm_start);
-				SEQ_PUT_DEC("kB  rss:", mss.resident);
-				SEQ_PUT_DEC("kB  thp_size:", mss.anonymous_thp);
-				seq_printf(m, "kB \n");
-			} else {
-				if (mss.resident >= HPAGE_CONT_PTE_SIZE) {
-					seq_printf(m, "MissedAnonContPte: %lx-%lx(vma) %c%c%c%c %lx(pgoff) ",
-							vma->vm_start, vma->vm_end,
-							vma->vm_flags & VM_READ ? 'r' : '-',
-							vma->vm_flags & VM_WRITE ? 'w' : '-',
-							vma->vm_flags & VM_EXEC ? 'x' : '-',
-							vma->vm_flags & VM_MAYSHARE ? 's' : 'p',
-							vma->vm_pgoff);
-					SEQ_PUT_DEC("size:", vma->vm_end - vma->vm_start);
-					SEQ_PUT_DEC("kB  rss:", mss.resident);
-					SEQ_PUT_DEC("kB  thp_size:", mss.anonymous_thp);
-					seq_printf(m, "kB \n");
-				}
-			}
-		}
-	}
-#endif
-
-	if (arch_pkeys_enabled())
-		seq_printf(m, "ProtectionKey:  %8u\n", vma_pkey(vma));
-	show_smap_vma_flags(m, vma);
-
-show_pad:
-	show_map_pad_vma(vma, m, show_smap, true);
-
-	return 0;
-}
 
 static int show_smaps_rollup(struct seq_file *m, void *v)
 {
