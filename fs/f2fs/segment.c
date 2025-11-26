@@ -2349,6 +2349,50 @@ void f2fs_invalidate_blocks(struct f2fs_sb_info *sbi, block_t addr)
 	up_write(&sit_i->sentry_lock);
 }
 
+/*
+ * Helper: invalidate any internal per-sbi caches related to a block
+ * (meta mapping or compress page cache). This is a minimal wrapper to
+ * ensure that when a block is recycled or overwritten, any cached
+ * pages are invalidated. For data area blocks we cannot invalidate
+ * direct data file page cache without inode lookup, so we limit to
+ * meta and compress mappings.
+ */
+void f2fs_invalidate_internal_cache(struct f2fs_sb_info *sbi, block_t blkaddr)
+{
+	/* invalid block marker, nothing to do */
+	if (!sbi || blkaddr == NULL_ADDR || blkaddr == NEW_ADDR)
+		return;
+
+	/* If block belongs to meta area, invalidate meta mapping pages */
+	if (blkaddr < MAIN_BLKADDR(sbi)) {
+		if (META_MAPPING(sbi))
+			invalidate_mapping_pages(META_MAPPING(sbi), blkaddr, blkaddr);
+	}
+
+	/* Always try to invalidate compress mapping as well (no-op if no compress inode) */
+	if (sbi->compress_inode)
+		f2fs_invalidate_compress_page(sbi, blkaddr);
+}
+
+/*
+ * Helper: truncate metadata inode page cache for a range of block addresses
+ */
+void f2fs_truncate_meta_inode_pages(struct f2fs_sb_info *sbi, block_t blkaddr,
+									unsigned int len)
+{
+	loff_t start = (loff_t)blkaddr << PAGE_SHIFT;
+	loff_t end;
+
+	if (!sbi)
+		return;
+	if (len == 0)
+		end = -1;
+	else
+		end = ((loff_t)(blkaddr + len - 1) << PAGE_SHIFT) + (PAGE_SIZE - 1);
+
+	truncate_inode_pages_range(META_MAPPING(sbi), start, end);
+}
+
 bool f2fs_is_checkpointed_data(struct f2fs_sb_info *sbi, block_t blkaddr)
 {
 	struct sit_info *sit_i = SIT_I(sbi);

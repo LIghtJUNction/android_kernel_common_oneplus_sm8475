@@ -1,4 +1,4 @@
-CONFIG_CONT_PTE_HUGEPAGE// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Page Size Migration
  *

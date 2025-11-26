@@ -109,22 +109,23 @@ static inline struct hlist_head *dev_map_index_hash(struct bpf_dtab *dtab,
 static int dev_map_init_map(struct bpf_dtab *dtab, union bpf_attr *attr)
 {
 	u32 valsize = attr->value_size;
+	u64 cost;
+	int err;
 
 	/* check sanity of attributes. 2 value sizes supported:
 	 * 4 bytes: ifindex
 	 * 8 bytes: ifindex + prog fd
 	 */
 	if (attr->max_entries == 0 || attr->key_size != 4 ||
-	    (valsize != offsetofend(struct bpf_devmap_val, ifindex) &&
-	     valsize != offsetofend(struct bpf_devmap_val, bpf_prog.fd)) ||
-	    attr->map_flags & ~DEV_CREATE_FLAG_MASK)
+		(valsize != offsetofend(struct bpf_devmap_val, ifindex) &&
+		 valsize != offsetofend(struct bpf_devmap_val, bpf_prog.fd)) ||
+		attr->map_flags & ~DEV_CREATE_FLAG_MASK)
 		return -EINVAL;
 
 	/* Lookup returns a pointer straight to dev->ifindex, so make sure the
 	 * verifier prevents writes from the BPF side
 	 */
 	attr->map_flags |= BPF_F_RDONLY_PROG;
-
 
 	bpf_map_init_from_attr(&dtab->map, attr);
 
@@ -136,28 +137,38 @@ static int dev_map_init_map(struct bpf_dtab *dtab, union bpf_attr *attr)
 			return -EINVAL;
 
 		dtab->n_buckets = roundup_pow_of_two(dtab->map.max_entries);
-		cost += (u64) sizeof(struct hlist_head) * dtab->n_buckets;
-	} else {
-		cost += (u64) dtab->map.max_entries * sizeof(struct bpf_dtab_netdev *);
-	}
 
-		dtab->n_buckets = roundup_pow_of_two(dtab->map.max_entries);
+		cost = (u64)sizeof(struct hlist_head) * dtab->n_buckets;
+
+		err = bpf_map_charge_init(&dtab->map.memory, cost);
+		if (err)
+			return err;
 
 		dtab->dev_index_head = dev_map_create_hash(dtab->n_buckets,
-							   dtab->map.numa_node);
+												   dtab->map.numa_node);
 		if (!dtab->dev_index_head)
-			return -ENOMEM;
+			goto free_charge;
 
 		spin_lock_init(&dtab->index_lock);
 	} else {
-		dtab->netdev_map = bpf_map_area_alloc((u64) dtab->map.max_entries *
-						      sizeof(struct bpf_dtab_netdev *),
-						      dtab->map.numa_node);
+		cost = (u64)dtab->map.max_entries * sizeof(struct bpf_dtab_netdev *);
+
+		err = bpf_map_charge_init(&dtab->map.memory, cost);
+		if (err)
+			return err;
+
+		dtab->netdev_map = bpf_map_area_alloc((u64)dtab->map.max_entries *
+											  sizeof(struct bpf_dtab_netdev *),
+											  dtab->map.numa_node);
 		if (!dtab->netdev_map)
-			return -ENOMEM;
+			goto free_charge;
 	}
 
 	return 0;
+
+free_charge:
+	bpf_map_charge_finish(&dtab->map.memory);
+	return -ENOMEM;
 }
 
 static struct bpf_map *dev_map_alloc(union bpf_attr *attr)

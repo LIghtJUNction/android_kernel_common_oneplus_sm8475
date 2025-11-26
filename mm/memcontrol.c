@@ -5625,6 +5625,7 @@ static struct mem_cgroup *mem_cgroup_alloc(void)
 	spin_unlock(&memcg_idr_lock);
 	trace_android_vh_mem_cgroup_alloc(memcg);
 	return memcg;
+#endif /* CONFIG_TRANSPARENT_HUGEPAGE */
 fail:
 	mem_cgroup_id_remove(memcg);
 	__mem_cgroup_free(memcg);

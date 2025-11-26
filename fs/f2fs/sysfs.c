@@ -800,8 +800,8 @@ static ssize_t f2fs_feature_show(struct f2fs_attr *a,
 	return sprintf(buf, "supported\n");
 }
 
-static ssize_t f2fs_may_compr_show(struct f2fs_attr *a,
-		struct f2fs_sb_info *sbi, char *buf)
+static __maybe_unused ssize_t f2fs_may_compr_show(struct f2fs_attr *a,
+	struct f2fs_sb_info *sbi, char *buf)
 {
 	if (!strcmp(a->attr.name, "may_compress"))
 		return sprintf(buf, "%d", may_compress ? 1 : 0);
@@ -810,7 +810,7 @@ static ssize_t f2fs_may_compr_show(struct f2fs_attr *a,
 	return -EINVAL;
 }
 
-static ssize_t f2fs_may_compr_store(struct f2fs_attr *a,
+static __maybe_unused ssize_t f2fs_may_compr_store(struct f2fs_attr *a,
 			struct f2fs_sb_info *sbi, const char *buf, size_t count)
 {
 	int val, ret;
